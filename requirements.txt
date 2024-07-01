@@ -1,0 +1,10 @@
+aiofiles
+fastapi
+jinja2
+markdown2
+openai
+python-dotenv
+starlette
+typing-extensions
+uvicorn
+itsdangerous
