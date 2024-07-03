@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sentinal</title>
+    <link rel="stylesheet" href="/static/css/main_style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="left-section">
+            <div class="branding">
+                <img src="../static/images/Sentinal_logo.png" alt="Sentinal Logo">
+            </div>
+            <h1>Customer Support, Sentinal</h1>
+            <ul class="features">
+                <li>🚀 Customer Support on the go</li>
+                <li>⚡ Save Time With Sentinal</li>
+                <li>👥 Simple Steps</li>
+                <li>🌐 Join the community</li>
+            </ul>
+        </div>
+        <div class="right-section">
+            <form id="taskForm" action="/submit" method="post" enctype="multipart/form-data">
+                <h2>Enter The Required Details</h2>
+                <!-- Company Name Input -->
+                <div class="input-box">
+                    <label for="companyName" style="font-weight: bold; color: rgb(0, 0, 0);">Assistant Name:</label>
+                    <input type="text" id="companyName" name="company_name" required>
+                </div>
+                <!-- Company Link Input -->
+                <div class="input-box">
+                    <label for="companyLink" style="font-weight: bold; color: rgb(0, 0, 0);">Any Link if required:</label>
+                    <input type="url" id="companyLink" name="company_link">
+                </div>
+                <!-- Assistant Instructions Input -->
+                <div class="input-box">
+                    <label for="assist_instructions" style="font-weight: bold; color: rgb(0, 0, 0);">Add Instructions for Assistant:</label>
+                    <input type="text" id="assist_instructions" name="assistant_instructions" required>
+                </div>
+                <!-- Tool Selection Dropdown -->
+                <div class="input-box">
+                    <label for="toolType" style="font-weight: bold; color: rgb(0, 0, 0);">Select Tool:</label>
+                    <div class="dropdown">
+                        <input type="checkbox" id="toolDropdown">
+                        <label class="dropdown__face" for="toolDropdown">
+                            <div class="dropdown__text" id="toolDropdownText">Select tool</div>
+                            <div class="dropdown__arrow"></div>
+                        </label>
+                        <ul class="dropdown__items">
+                            <li onclick="selectToolType('file_search')" style="font-weight: bold; color: rgb(0, 0, 0);">Retrieval</li>
+                            <li onclick="selectToolType('code_interpreter')" style="font-weight: bold; color: rgb(0, 0, 0);">Code Interpreter</li>
+                        </ul>
+                    </div>
+                </div>
+                <input type="hidden" id="toolType" name="tool_type" required>
+                <!-- File Upload Input -->
+                <div class="input-box">
+                    <label for="fileInput" style="font-weight: bold; color: rgb(0, 0, 0);">Upload File:</label>
+                    <input type="file" id="fileInput" name="file_input">
+                </div>
+                <div id="errorMessage" style="color: red;"></div>
+                <!-- Submit Button -->
+                <button type="submit" class="button-3">Create Assistant</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Function to handle tool type selection
+        function selectToolType(type) {
+            document.getElementById('toolType').value = type;
+            document.getElementById('toolDropdownText').innerText = type;
+            document.getElementById('toolDropdown').checked = false;
+        }
+
+        // Form validation to ensure a tool is selected
+        document.getElementById("taskForm").addEventListener("submit", function(event) {
+            const toolType = document.getElementById("toolType").value;
+
+            if (!toolType) {
+                event.preventDefault();
+                document.getElementById("errorMessage").textContent = "Please select a tool.";
+            }
+        });
+    </script>
+</body>
+</html>
