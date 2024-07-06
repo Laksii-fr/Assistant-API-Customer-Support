@@ -72,7 +72,7 @@ async def handle_form(
 
     # Insert IDs into the database
     try:
-        await insert_assistant_data(assistant_id, thread_id, file_id)
+        await insert_assistant_data(company_name,company_link,assistant_id, thread_id, file_id)
     except Exception as e:
         print(f"Error inserting data into MongoDB: {e}")
         return RedirectResponse(url="/error", status_code=302)

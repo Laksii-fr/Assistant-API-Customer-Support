@@ -14,9 +14,11 @@ client = AsyncIOMotorClient(MONGODB_URI)
 db = client[DATABASE_NAME]
 collection = db[COLLECTION_NAME]
 
-async def insert_assistant_data(assistant_id: str, thread_id: str, file_id: Optional[str] = None):
+async def insert_assistant_data(assistant_name: str,assistant_link: str, assistant_id: str, thread_id: str, file_id: Optional[str] = None):
     """Insert assistant, thread, and optional file ID into MongoDB."""
     document = {
+        "assistant_name": assistant_name,
+        "link": assistant_link,
         "assistant_id": assistant_id,
         "thread_id": thread_id,
         "file_id": file_id

@@ -8,3 +8,6 @@ starlette
 typing-extensions
 uvicorn
 itsdangerous
+motor
+pymongo
+uvicorn
