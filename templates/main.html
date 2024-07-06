@@ -53,7 +53,23 @@
                         </ul>
                     </div>
                 </div>
+                <!-- Model Selection Dropdown -->
+                <div class="input-box">
+                    <label for="ModelType" style="font-weight: bold; color: rgb(0, 0, 0);">Select Model:</label>
+                    <div class="dropdown">
+                        <input type="checkbox" id="ModelDropdown">
+                        <label class="dropdown__face" for="ModelDropdown">
+                            <div class="dropdown__text" id="ModelDropdownText">Select Model</div>
+                            <div class="dropdown__arrow"></div>
+                        </label>
+                        <ul class="dropdown__items">
+                            <li onclick="selectModelType('gpt-3.5-turbo')" style="font-weight: bold; color: rgb(0, 0, 0);">ChatGPT-3.5-Turbo</li>
+                            <li onclick="selectModelType('gpt-4o')" style="font-weight: bold; color: rgb(0, 0, 0);">ChatGPT-4o</li>
+                        </ul>
+                    </div>
+                </div>
                 <input type="hidden" id="toolType" name="tool_type" required>
+                <input type="hidden" id="ModelType" name="Model_type" required>
                 <!-- File Upload Input -->
                 <div class="input-box">
                     <label for="fileInput" style="font-weight: bold; color: rgb(0, 0, 0);">Upload File:</label>
@@ -73,6 +89,11 @@
             document.getElementById('toolDropdownText').innerText = type;
             document.getElementById('toolDropdown').checked = false;
         }
+        function selectModelType(type) {
+            document.getElementById('ModelType').value = type;
+            document.getElementById('ModelDropdownText').innerText = type;
+            document.getElementById('ModelDropdown').checked = false;
+        }
 
         // Form validation to ensure a tool is selected
         document.getElementById("taskForm").addEventListener("submit", function(event) {
@@ -81,6 +102,10 @@
             if (!toolType) {
                 event.preventDefault();
                 document.getElementById("errorMessage").textContent = "Please select a tool.";
+            }
+            if (!ModelType) {
+                event.preventDefault();
+                document.getElementById("errorMessage").textContent = "Please select a Model.";
             }
         });
     </script>

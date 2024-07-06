@@ -8,6 +8,7 @@ def create_assistant(config):
         raise ValueError("Assistant configuration is not set properly")
 
     tool_sel = config['tool_sel']
+    Model_sel = config['Model_sel']
     assistant_instructions = config['assistant_instructions']
     company_info = config.get('company_info', '')
 
@@ -17,7 +18,7 @@ def create_assistant(config):
             name="Company Assistant",
             instructions=assistant_instructions + f", Company Information: {company_info}",
             tools=[{"type": tool_sel}],  # Use the selected tool type
-            model="gpt-3.5-turbo",
+            model=Model_sel,
         )
         return assistant
     except Exception as e:
