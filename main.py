@@ -1,138 +1,112 @@
-from fastapi import FastAPI, UploadFile, Form, File, Request, HTTPException, status
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi import FastAPI, UploadFile, Form, File, Request
+from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
-from openai import OpenAI, AssistantEventHandler
-from typing_extensions import override
-from helpers import save_file, upload_file_to_openai, create_thread, add_message_to_thread
-import markdown2
-import re
+from starlette.responses import RedirectResponse
+from app.database import insert_assistant_data
+from app.assistant import create_assistant
+from app.upload import save_file, upload_file_to_openai
+from app.threads import create_thread , add_message_to_thread
+
 app = FastAPI()
 app.add_middleware(SessionMiddleware, secret_key="your-secret-key")
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
-
-
-# print("1 Executed")
-
-# Ensure these lines are commented out or removed if not used
-class EventHandler(AssistantEventHandler):
-    @override
-    def on_text_created(self, text) -> None:
-        print(f"\nassistant > ", end="", flush=True)
-      
-    @override
-    def on_text_delta(self, delta, snapshot):
-        print(delta.value, end="", flush=True)
-      
-    def on_tool_call_created(self, tool_call):
-        print(f"\nassistant > {tool_call.type}\n", flush=True)
-  
-    def on_tool_call_delta(self, delta, snapshot):
-        if delta.type == 'file_search':
-            print(f"\n{delta.file_search.input}\n", flush=True)
-            if delta.file_search.outputs:
-                print(f"\n\noutput >", flush=True)
-                for output in delta.file_search.outputs:
-                    if output.type == "text":
-                        print(f"\n{output.text}", flush=True)
-
-
-
-# print("2 Executed")
+# Global dictionary to store assistant configurations
+assistant_config = {}
 
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request):
-    return templates.TemplateResponse("index.html", {"request": request})
+    return templates.TemplateResponse("main.html", {"request": request})
 
 @app.post("/submit", response_class=RedirectResponse)
 async def handle_form(
     request: Request,
     company_name: str = Form(...),
     company_link: str = Form(...),
-    file_type: str = Form(...),
+    assistant_instructions: str = Form(...),
+    tool_type: str = Form(...),
+    Model_type : str = Form(...),
     file_input: UploadFile = File(...)
 ):
-    # Save the uploaded file locally
-    file_path = await save_file(file_input)
-    
-    # Upload the file to OpenAI and get the file ID
-    file_id = await upload_file_to_openai(file_path)
-    
-    if not file_id:
+    global company_info
+    file_id = None
+
+    if tool_type != "code_interpreter":
+        # Save the uploaded file locally
+        if file_input:
+            file_path = await save_file(file_input)
+            # Upload the file to OpenAI and get the file ID
+            file_id = await upload_file_to_openai(file_path)
+
+        if not file_id:
+            return RedirectResponse(url="/error", status_code=302)
+
+    company_info = f"Company Name: {company_name}, Company Link: {company_link}"
+
+    # Include file ID in company info if available
+    if file_id:
+        company_info += f", File ID: {file_id}"
+
+    assistant_config['tool_sel'] = tool_type
+    assistant_config['Model_sel'] = Model_type
+    assistant_config['assistant_instructions'] = assistant_instructions
+    assistant_config['company_info'] = company_info
+
+    try:
+        assistant = create_assistant(assistant_config)
+        assistant_id = assistant.id  # Capture the assistant ID
+    except Exception as e:
+        print(f"Error creating assistant: {e}")
         return RedirectResponse(url="/error", status_code=302)
-    
-    company_info = f"Company Name: {company_name}, Company Link: {company_link}, File Type: {file_type}, File ID: {file_id}"
-    
+
     # Create a new thread
-    thread_id = await create_thread(company_info, assistant, file_id)
-    
-    # Store the thread ID and file ID in the session
+    try:
+        thread_id = await create_thread(company_info, assistant_id, file_id)
+    except Exception as e:
+        print(f"Error creating thread: {e}")
+        return RedirectResponse(url="/error", status_code=302)
+
+    # Insert IDs into the database
+    try:
+        await insert_assistant_data(company_name,company_link,assistant_id, thread_id, file_id)
+    except Exception as e:
+        print(f"Error inserting data into MongoDB: {e}")
+        return RedirectResponse(url="/error", status_code=302)
+
+    # Store the thread ID in the session
     request.session['thread_id'] = thread_id
-    request.session['file_id'] = file_id
-    
-    # Log the uploaded file info
-    print(f"Company: {company_name}, Link: {company_link}, File Type: {file_type}, File Name: {file_input.filename}, OpenAI File ID: {file_id} , Thread ID : {thread_id}")
-    
+    request.session['assistant_id'] = assistant_id  # Store assistant_id
+    request.session['file_id'] = file_id  # Store file_id only if not None
+
+    print(f"Company: {company_name}, Link: {company_link}, File Name: {file_input.filename if file_input else 'N/A'}, OpenAI File ID: {file_id if file_id else 'N/A'}, Thread ID: {thread_id}")
+
     return RedirectResponse(url="/chatbot", status_code=302)
-
-# print("3 Executed")
-
-# Initialize OpenAI client and assistant
-client = OpenAI()
-assistant = client.beta.assistants.create(
-    name="Company Assistant",
-    instructions="You are a helpful assistant. You will Answer the user query based on this Company information {company_info}. You should not answer anthing by yourself you must only use the information provided my user",
-    tools=[{"type": "file_search"}],  # Use the file_search tool
-    model="gpt-4o",
-)
 
 @app.get("/chatbot", response_class=HTMLResponse)
 async def chatbot_page(request: Request):
     return templates.TemplateResponse("chatbot.html", {"request": request})
 
-# print("4 Executed")
-
-import markdown2
-
 @app.post("/process")
 async def process_message(request: Request):
     data = await request.json()
     user_message = data['msg']
-    
-    # Get the thread ID and file ID from the session
+
     thread_id = request.session.get('thread_id')
-    file_id = request.session.get('file_id')
-    
-    if not thread_id or not file_id:
-        return {"response": "Thread or file not available. Please try again later."}
-    
+    assistant_id = request.session.get('assistant_id')  # Retrieve assistant_id
+    file_id = request.session.get('file_id')  # file_id can be None
+
+    if not thread_id:
+        return {"response": "Thread not available. Please try again later."}
+
     # Add the user's message to the thread
-    await add_message_to_thread(thread_id, user_message, file_id, assistant)
-    
-    # Stream the response and capture it
-    response_text = ""
-    event_handler = EventHandler()
-    
-    class CaptureEventHandler(EventHandler):
-        @override
-        def on_text_delta(self, delta, snapshot):
-            nonlocal response_text
-            response_text += delta.value
-    
-    with client.beta.threads.runs.stream(
-        thread_id=thread_id,
-        assistant_id=assistant.id,
-        instructions="Answer the user's query based the company information {company_info}",
-        event_handler=CaptureEventHandler(),
-    ) as stream:
-        stream.until_done()
-    
-    # Convert the response to HTML using markdown2
-    # print(response_text)
-    response_html = markdown2.markdown(response_text)
-    
-    return {"response": response_html}
+    try:
+        response_text = await add_message_to_thread(thread_id, user_message, assistant_id, file_id)
+    except Exception as e:
+        print(f"Error adding message to thread: {e}")
+        return {"response": "Error processing message."}
+
+    return {"response": response_text}
