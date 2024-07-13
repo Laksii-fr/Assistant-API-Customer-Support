@@ -24,3 +24,28 @@ def create_assistant(config):
     except Exception as e:
         print(f"Error creating assistant: {e}")
         return None  # Ensure you handle this case in your calling code
+
+async def update_assistant_details(assistant_id, name=None, instructions=None, tool_type=None, model_type=None):
+    update_data = {}
+    if name:
+        update_data["name"] = name
+    if instructions:
+        update_data["instructions"] = instructions
+    if tool_type:
+        update_data["tools"] = [{"type": tool_type}]
+    if model_type:
+        update_data["model"] = model_type
+
+    if not update_data:
+        return None  # No updates to be made
+
+    try:
+        client = OpenAI()
+        updated_assistant = client.beta.assistants.update(
+            assistant_id,
+            **update_data
+        )
+        return updated_assistant
+    except Exception as e:
+        print(f"Error updating assistant: {e}")
+        return None

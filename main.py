@@ -1,13 +1,13 @@
-from fastapi import FastAPI, UploadFile, Form, File, Request
+from fastapi import FastAPI, UploadFile, Form, File, Request, Depends
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
-from starlette.responses import RedirectResponse
-from app.database import insert_assistant_data
-from app.assistant import create_assistant
+from starlette.responses import RedirectResponse, JSONResponse
+from app.database import insert_assistant_data, insert_assistant_threads, get_threads_for_assistant, get_messages_for_thread,update_assistant_data
+from app.assistant import create_assistant , update_assistant_details
 from app.upload import save_file, upload_file_to_openai
-from app.threads import create_thread , add_message_to_thread
+from app.threads import create_thread, add_message_to_thread
 
 app = FastAPI()
 app.add_middleware(SessionMiddleware, secret_key="your-secret-key")
@@ -29,7 +29,7 @@ async def handle_form(
     company_link: str = Form(...),
     assistant_instructions: str = Form(...),
     tool_type: str = Form(...),
-    Model_type : str = Form(...),
+    Model_type: str = Form(...),
     file_input: UploadFile = File(...)
 ):
     global company_info
@@ -54,6 +54,7 @@ async def handle_form(
     assistant_config['tool_sel'] = tool_type
     assistant_config['Model_sel'] = Model_type
     assistant_config['assistant_instructions'] = assistant_instructions
+    assistant_config['assistant_tool'] = assistant_instructions
     assistant_config['company_info'] = company_info
 
     try:
@@ -72,7 +73,8 @@ async def handle_form(
 
     # Insert IDs into the database
     try:
-        await insert_assistant_data(company_name,company_link,assistant_id, thread_id, file_id)
+        await insert_assistant_data(company_name, assistant_instructions, company_link, assistant_id, Model_type, tool_type, thread_id, file_id)
+        await insert_assistant_threads(assistant_id, thread_id, file_id)
     except Exception as e:
         print(f"Error inserting data into MongoDB: {e}")
         return RedirectResponse(url="/error", status_code=302)
@@ -88,7 +90,7 @@ async def handle_form(
 
 @app.get("/chatbot", response_class=HTMLResponse)
 async def chatbot_page(request: Request):
-    return templates.TemplateResponse("chatbot.html", {"request": request})
+    return templates.TemplateResponse("chat.html", {"request": request})
 
 @app.post("/process")
 async def process_message(request: Request):
@@ -110,3 +112,74 @@ async def process_message(request: Request):
         return {"response": "Error processing message."}
 
     return {"response": response_text}
+
+@app.post("/new_thread")
+async def new_thread(request: Request):
+    assistant_id = request.session.get('assistant_id')
+    file_id = request.session.get('file_id')
+
+    if not assistant_id:
+        return JSONResponse({"error": "Assistant not available. Please try again later."}, status_code=400)
+
+    # Create a new thread
+    try:
+        company_info = assistant_config.get('company_info', 'Company Information')
+        thread_id = await create_thread(company_info, assistant_id, file_id)
+        await insert_assistant_threads(assistant_id, thread_id, file_id)
+        request.session['thread_id'] = thread_id
+    except Exception as e:
+        print(f"Error creating new thread: {e}")
+        return JSONResponse({"error": "Error creating new thread."}, status_code=500)
+
+    return JSONResponse({"thread_id": thread_id}, status_code=200)
+
+@app.get("/threads")
+async def get_threads(request: Request):
+    assistant_id = request.session.get('assistant_id')
+    if not assistant_id:
+        return JSONResponse({"error": "Assistant not available."}, status_code=400)
+
+    try:
+        threads = await get_threads_for_assistant(assistant_id)
+    except Exception as e:
+        print(f"Error retrieving threads: {e}")
+        return JSONResponse({"error": "Error retrieving threads."}, status_code=500)
+
+    return JSONResponse({"threads": threads}, status_code=200)
+
+@app.get("/load_thread/{thread_id}")
+async def load_thread(thread_id: str):
+    try:
+        messages = await get_messages_for_thread(thread_id)
+    except Exception as e:
+        print(f"Error loading thread: {e}")
+        return JSONResponse({"error": "Error loading thread."}, status_code=500)
+
+    return JSONResponse({"messages": messages}, status_code=200)
+
+#Update exisiting Assistant 
+
+@app.get("/update_assistant", response_class=HTMLResponse)
+async def update_assistant_page(request: Request):
+    return templates.TemplateResponse("update_assistant.html", {"request": request})
+
+@app.post("/update_assistant", response_class=RedirectResponse)
+async def update_assistant(
+    request: Request,
+    assistant_id: str = Form(...),
+    assistant_name: str = Form(None),
+    assistant_instructions: str = Form(None),
+    tool_type: str = Form(None),
+    Model_type: str = Form(None)
+):
+    try:
+        updated_assistant = await update_assistant_details(assistant_id, assistant_name, assistant_instructions, tool_type, Model_type)
+        if updated_assistant:
+            await update_assistant_data(assistant_id, assistant_name, assistant_instructions, tool_type, Model_type)
+        else:
+            raise ValueError("Failed to update assistant using OpenAI API")
+    except Exception as e:
+        print(f"Error updating assistant: {e}")
+        return RedirectResponse(url="/error", status_code=302)
+
+    return RedirectResponse(url="/", status_code=302)

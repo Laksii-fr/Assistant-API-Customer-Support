@@ -1,4 +1,3 @@
-# threads.py
 from openai import OpenAI
 from app.event_handler import EventHandler
 import os
