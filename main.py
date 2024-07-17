@@ -4,10 +4,11 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.responses import RedirectResponse, JSONResponse
-from app.database import insert_assistant_data, insert_assistant_threads, get_threads_for_assistant, get_messages_for_thread,update_assistant_data
-from app.assistant import create_assistant , update_assistant_details
+from app.database import insert_assistant_data, insert_assistant_threads, get_threads_for_assistant, get_messages_for_thread, update_assistant_data, get_all_assistants
+from app.assistant import create_assistant, update_assistant_details
 from app.upload import save_file, upload_file_to_openai
 from app.threads import create_thread, add_message_to_thread
+from typing import List
 
 app = FastAPI()
 app.add_middleware(SessionMiddleware, secret_key="your-secret-key")
@@ -30,26 +31,39 @@ async def handle_form(
     assistant_instructions: str = Form(...),
     tool_type: str = Form(...),
     Model_type: str = Form(...),
-    file_input: UploadFile = File(...)
+    file_inputs: List[UploadFile] = File(None)
 ):
     global company_info
-    file_id = None
+    file_ids = []
 
+    print(f"Received tool_type: {tool_type}")
     if tool_type != "code_interpreter":
-        # Save the uploaded file locally
-        if file_input:
-            file_path = await save_file(file_input)
-            # Upload the file to OpenAI and get the file ID
-            file_id = await upload_file_to_openai(file_path)
+        print("Executed 1")
+        print(f"file_inputs: {file_inputs}")
+        # Save the uploaded files locally
+        if file_inputs:
+            print("Executed 1.1")
+            for file_input in file_inputs:
+                print(f"Processing file: {file_input.filename}")
+                print("Executed 1.2")
+                file_path = await save_file(file_input)
+                print(f"Saved file to {file_path}")
+                # Upload the file to OpenAI and get the file ID
+                file_id = await upload_file_to_openai(file_path)
+                print("Executed 1.3")
+                if file_id:
+                    file_ids.append(file_id)
+                print(f"File ID: {file_id}")
 
-        if not file_id:
+        if not file_ids:
+            print("No file IDs generated")
             return RedirectResponse(url="/error", status_code=302)
 
     company_info = f"Company Name: {company_name}, Company Link: {company_link}"
 
-    # Include file ID in company info if available
-    if file_id:
-        company_info += f", File ID: {file_id}"
+    # Include file IDs in company info if available
+    if file_ids:
+        company_info += f", File IDs: {', '.join(file_ids)}"
 
     assistant_config['tool_sel'] = tool_type
     assistant_config['Model_sel'] = Model_type
@@ -66,15 +80,15 @@ async def handle_form(
 
     # Create a new thread
     try:
-        thread_id = await create_thread(company_info, assistant_id, file_id)
+        thread_id = await create_thread(company_info, assistant_id, file_ids)
     except Exception as e:
         print(f"Error creating thread: {e}")
         return RedirectResponse(url="/error", status_code=302)
 
     # Insert IDs into the database
     try:
-        await insert_assistant_data(company_name, assistant_instructions, company_link, assistant_id, Model_type, tool_type, thread_id, file_id)
-        await insert_assistant_threads(assistant_id, thread_id, file_id)
+        await insert_assistant_data(company_name, assistant_instructions, company_link, assistant_id, Model_type, tool_type, file_ids)
+        await insert_assistant_threads(assistant_id, thread_id, file_ids)
     except Exception as e:
         print(f"Error inserting data into MongoDB: {e}")
         return RedirectResponse(url="/error", status_code=302)
@@ -82,9 +96,9 @@ async def handle_form(
     # Store the thread ID in the session
     request.session['thread_id'] = thread_id
     request.session['assistant_id'] = assistant_id  # Store assistant_id
-    request.session['file_id'] = file_id  # Store file_id only if not None
+    request.session['file_ids'] = file_ids  # Store file_ids
 
-    print(f"Company: {company_name}, Link: {company_link}, File Name: {file_input.filename if file_input else 'N/A'}, OpenAI File ID: {file_id if file_id else 'N/A'}, Thread ID: {thread_id}")
+    print(f"Company: {company_name}, Link: {company_link}, File Names: {[file_input.filename for file_input in file_inputs] if file_inputs else 'N/A'}, OpenAI File IDs: {file_ids if file_ids else 'N/A'}, Thread ID: {thread_id}")
 
     return RedirectResponse(url="/chatbot", status_code=302)
 
@@ -99,14 +113,14 @@ async def process_message(request: Request):
 
     thread_id = request.session.get('thread_id')
     assistant_id = request.session.get('assistant_id')  # Retrieve assistant_id
-    file_id = request.session.get('file_id')  # file_id can be None
+    file_ids = request.session.get('file_ids')  # file_ids can be None
 
     if not thread_id:
         return {"response": "Thread not available. Please try again later."}
 
     # Add the user's message to the thread
     try:
-        response_text = await add_message_to_thread(thread_id, user_message, assistant_id, file_id)
+        response_text = await add_message_to_thread(thread_id, user_message, assistant_id, file_ids)
     except Exception as e:
         print(f"Error adding message to thread: {e}")
         return {"response": "Error processing message."}
@@ -116,7 +130,7 @@ async def process_message(request: Request):
 @app.post("/new_thread")
 async def new_thread(request: Request):
     assistant_id = request.session.get('assistant_id')
-    file_id = request.session.get('file_id')
+    file_ids = request.session.get('file_ids')
 
     if not assistant_id:
         return JSONResponse({"error": "Assistant not available. Please try again later."}, status_code=400)
@@ -124,8 +138,8 @@ async def new_thread(request: Request):
     # Create a new thread
     try:
         company_info = assistant_config.get('company_info', 'Company Information')
-        thread_id = await create_thread(company_info, assistant_id, file_id)
-        await insert_assistant_threads(assistant_id, thread_id, file_id)
+        thread_id = await create_thread(company_info, assistant_id, file_ids)
+        await insert_assistant_threads(assistant_id, thread_id, file_ids)
         request.session['thread_id'] = thread_id
     except Exception as e:
         print(f"Error creating new thread: {e}")
@@ -157,11 +171,12 @@ async def load_thread(thread_id: str):
 
     return JSONResponse({"messages": messages}, status_code=200)
 
-#Update exisiting Assistant 
+# Update existing Assistant 
 
 @app.get("/update_assistant", response_class=HTMLResponse)
 async def update_assistant_page(request: Request):
-    return templates.TemplateResponse("update_assistant.html", {"request": request})
+    assistants = await get_all_assistants()
+    return templates.TemplateResponse("update_assistant.html", {"request": request, "assistants": assistants})
 
 @app.post("/update_assistant", response_class=RedirectResponse)
 async def update_assistant(

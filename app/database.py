@@ -1,6 +1,6 @@
 from motor.motor_asyncio import AsyncIOMotorClient
 from pymongo import ReturnDocument
-from typing import Optional
+from typing import Optional, List
 import os
 from dotenv import load_dotenv
 
@@ -11,55 +11,34 @@ DATABASE_NAME = "assistant_db"
 COLLECTION_NAME = "assistant_data"
 TCOLLECTION_NAME = "assistant_threads"
 
-
-
 client = AsyncIOMotorClient(MONGODB_URI)
 db = client[DATABASE_NAME]
 assistant_collection = db[COLLECTION_NAME]
 thread_collection = db[TCOLLECTION_NAME]
 
-async def insert_assistant_data(assistant_name: str, assistant_instructions: str,assistant_link: str, assistant_id: str,Model_type: str, tool_type: str, thread_id: str,file_id: Optional[str] = None):
-    """Insert assistant, thread, and optional file ID into MongoDB."""
+async def insert_assistant_data(assistant_name: str, assistant_instructions: str, assistant_link: str, assistant_id: str, Model_type: str, tool_type: str, file_ids: Optional[List[str]] = None):
+    """Insert assistant data into MongoDB with multiple file IDs."""
     document = {
         "assistant_name": assistant_name,
-        "assistant_instructions" : assistant_instructions,
+        "assistant_instructions": assistant_instructions,
         "link": assistant_link,
         "assistant_id": assistant_id,
-        "Model_type" : Model_type,
-        "assistant_tool" : tool_type,
-        "thread_id": thread_id,
-        "file_id": file_id
+        "Model_type": Model_type,
+        "assistant_tool": tool_type,
+        "file_ids": file_ids if file_ids else []
     }
     result = await assistant_collection.insert_one(document)
     return result.inserted_id
 
-async def insert_assistant_threads(assistant_id: str, thread_id: str,file_id: Optional[str] = None):
-    """Insert assistant, thread, and optional file ID into MongoDB."""
+async def insert_assistant_threads(assistant_id: str, thread_id: str, file_ids: Optional[List[str]] = None):
+    """Insert assistant threads data into MongoDB with multiple file IDs."""
     document = {
         "assistant_id": assistant_id,
         "thread_id": thread_id,
-        "file_id": file_id
+        "file_ids": file_ids if file_ids else []
     }
-    print(document)
     result = await thread_collection.insert_one(document)
     return result.inserted_id
-
-# async def update_assistant_data(assistant_id: str, thread_id: Optional[str] = None, file_id: Optional[str] = None):
-#     """Update an existing assistant document with new thread or file ID."""
-#     filter_query = {"assistant_id": assistant_id}
-#     update_fields = {}
-#     if thread_id:
-#         update_fields["thread_id"] = thread_id
-#     if file_id:
-#         update_fields["file_id"] = file_id
-#     update_query = {"$set": update_fields}
-
-#     result = await assistant_collection.find_one_and_update(
-#         filter_query,
-#         update_query,
-#         return_document=ReturnDocument.AFTER
-#     )
-#     return result
 
 async def get_assistant_data(assistant_id: str):
     """Retrieve assistant data by assistant_id."""
@@ -71,7 +50,7 @@ async def delete_assistant_data(assistant_id: str):
     return result.deleted_count
 
 async def get_threads_for_assistant(assistant_id):
-    cursor = db.assistant_threads.find({"assistant_id": assistant_id})
+    cursor = thread_collection.find({"assistant_id": assistant_id})
     threads = await cursor.to_list(length=100)
     return [{"thread_id": thread["thread_id"]} for thread in threads]
 
@@ -99,3 +78,8 @@ async def update_assistant_data(assistant_id, assistant_name=None, assistant_ins
         {"$set": update_fields}
     )
     return result.modified_count
+
+async def get_all_assistants():
+    cursor = assistant_collection.find({})
+    assistants = await cursor.to_list(length=100)
+    return [{"assistant_id": assistant["assistant_id"], "assistant_name": assistant["assistant_name"]} for assistant in assistants]
