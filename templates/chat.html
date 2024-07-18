@@ -52,29 +52,31 @@
 
     <script>
         $(document).ready(function() {
+            let currentThreadId = null;
+    
             // Load previous threads
             $.ajax({
                 url: "/threads",
                 type: "GET",
                 success: function(data) {
                     data.threads.forEach(function(thread) {
-                        $("#previousThreads").append(`<div class="thread" data-thread-id="${thread.thread_id}">Thread ID: ${thread.thread_id}</div>`);
+                        $("#previousThreads").append(`<button class="btn btn-secondary btn-block mb-2 thread" data-thread-id="${thread.thread_id}">Thread ID: ${thread.thread_id}</button>`);
                     });
                 },
                 error: function(jqXHR, textStatus, errorThrown) {
                     console.error("Error loading threads:", textStatus, errorThrown);
                 }
             });
-
             // Handle new chat button click
             $("#newChat").click(function() {
                 $.ajax({
                     url: "/new_thread",
                     type: "POST",
                     success: function(data) {
-                        const newThreadHtml = `<div class="thread" data-thread-id="${data.thread_id}">Thread ID: ${data.thread_id}</div>`;
+                        const newThreadHtml = `<button class="btn btn-secondary btn-block mb-2 thread" data-thread-id="${data.thread_id}">Thread ID: ${data.thread_id}</button>`;
                         $("#previousThreads").append(newThreadHtml);
-                        $("#messageFormeight").empty(); // Clear chat window
+                        $("#messageFormeight").empty();
+                        currentThreadId = data.thread_id;
                         console.log("New thread created:", data.thread_id);
                     },
                     error: function(jqXHR, textStatus, errorThrown) {
@@ -83,14 +85,14 @@
                 });
             });
 
-            // Handle thread click
+            // Handle thread button click
             $(document).on("click", ".thread", function() {
-                const threadId = $(this).data("thread-id");
+                currentThreadId = $(this).data("thread-id");
                 $.ajax({
-                    url: `/load_thread/${threadId}`,
+                    url: `/load_thread/${currentThreadId}`,
                     type: "GET",
                     success: function(data) {
-                        $("#messageFormeight").empty(); // Clear chat window
+                        $("#messageFormeight").empty();
                         data.messages.forEach(function(message) {
                             const messageHtml = message.role === "user" ?
                                 `<div class="d-flex justify-content-end mb-4"><div class="msg_cotainer_send">${message.content}<span class="msg_time_send">${message.time}</span></div><div class="img_cont_msg"><img src="/static/images/icon.jpg" class="rounded-circle user_img_msg"></div></div>` :

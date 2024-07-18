@@ -6,9 +6,10 @@ from starlette.middleware.sessions import SessionMiddleware
 from starlette.responses import RedirectResponse, JSONResponse
 from app.database import insert_assistant_data, insert_assistant_threads, get_threads_for_assistant, get_messages_for_thread, update_assistant_data, get_all_assistants
 from app.assistant import create_assistant, update_assistant_details
-from app.upload import save_file, upload_file_to_openai
-from app.threads import create_thread, add_message_to_thread
+from app.upload import save_file, upload_file_to_openai, upload_file_to_s3
+from app.threads import create_thread, add_message_to_thread , save_message ,get_all_thread_history,prettify_all_response
 from typing import List
+from datetime import datetime
 
 app = FastAPI()
 app.add_middleware(SessionMiddleware, secret_key="your-secret-key")
@@ -44,6 +45,7 @@ async def handle_form(
         if file_inputs:
             print("Executed 1.1")
             for file_input in file_inputs:
+                await upload_file_to_s3(file_input)
                 print(f"Processing file: {file_input.filename}")
                 print("Executed 1.2")
                 file_path = await save_file(file_input)
@@ -115,12 +117,17 @@ async def process_message(request: Request):
     assistant_id = request.session.get('assistant_id')  # Retrieve assistant_id
     file_ids = request.session.get('file_ids')  # file_ids can be None
 
+    now = datetime.now()
+    time_str = now.strftime("%H:%M")
+
     if not thread_id:
         return {"response": "Thread not available. Please try again later."}
 
     # Add the user's message to the thread
     try:
         response_text = await add_message_to_thread(thread_id, user_message, assistant_id, file_ids)
+        await save_message(thread_id, "user", user_message, time_str)
+        await save_message(thread_id, "bot", response_text, time_str)
     except Exception as e:
         print(f"Error adding message to thread: {e}")
         return {"response": "Error processing message."}
@@ -164,12 +171,13 @@ async def get_threads(request: Request):
 @app.get("/load_thread/{thread_id}")
 async def load_thread(thread_id: str):
     try:
-        messages = await get_messages_for_thread(thread_id)
+        messages = await get_all_thread_history(thread_id)  # Retrieve messages for the thread
+        prettified_messages = prettify_all_response(messages)  # Prettify messages if needed
     except Exception as e:
         print(f"Error loading thread: {e}")
         return JSONResponse({"error": "Error loading thread."}, status_code=500)
 
-    return JSONResponse({"messages": messages}, status_code=200)
+    return JSONResponse({"messages": prettified_messages}, status_code=200)
 
 # Update existing Assistant 
 

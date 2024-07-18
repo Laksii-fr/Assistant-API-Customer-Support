@@ -2,7 +2,7 @@ from openai import OpenAI
 from app.event_handler import EventHandler
 import os
 import openai
-from typing import List
+from typing import List, Dict
 
 openai.api_key = os.getenv("OPENAI_API_KEY")
 client = OpenAI()
@@ -53,3 +53,33 @@ async def add_message_to_thread(thread_id: str, content: str, assistant_id: str,
     except Exception as e:
         print(f"Error adding message to thread: {e}")
         return None
+
+
+
+
+# In-memory storage for example purposes
+# In a real application, you should use a database or persistent storage
+threads_storage: Dict[str, List[Dict[str, str]]] = {}
+
+async def save_message(thread_id: str, role: str, content: str, time: str):
+    if thread_id not in threads_storage:
+        threads_storage[thread_id] = []
+    threads_storage[thread_id].append({
+        "role": role,
+        "content": content,
+        "time": time
+    })
+
+async def get_all_thread_history(thread_id: str) -> List[Dict[str, str]]:
+    return threads_storage.get(thread_id, [])
+
+# A function to simulate message prettification, you can modify as needed
+def prettify_all_response(messages: List[Dict[str, str]]) -> List[Dict[str, str]]:
+    prettified_messages = []
+    for message in messages:
+        prettified_messages.append({
+            "role": message["role"],
+            "content": message["content"],
+            "time": message["time"]
+        })
+    return prettified_messages
