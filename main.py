@@ -6,7 +6,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from starlette.responses import RedirectResponse, JSONResponse
 from app.database import insert_assistant_data, insert_assistant_threads, get_threads_for_assistant, get_messages_for_thread, update_assistant_data, get_all_assistants
 from app.assistant import create_assistant, update_assistant_details
-from app.upload import save_file, upload_file_to_openai, upload_file_to_s3
+from app.upload import upload_file_to_openai
 from app.threads import create_thread, add_message_to_thread , save_message ,get_all_thread_history,prettify_all_response
 from typing import List
 from datetime import datetime
@@ -41,17 +41,13 @@ async def handle_form(
     if tool_type != "code_interpreter":
         print("Executed 1")
         print(f"file_inputs: {file_inputs}")
-        # Save the uploaded files locally
+        # Upload the files to OpenAI
         if file_inputs:
             print("Executed 1.1")
             for file_input in file_inputs:
-                await upload_file_to_s3(file_input)
                 print(f"Processing file: {file_input.filename}")
                 print("Executed 1.2")
-                file_path = await save_file(file_input)
-                print(f"Saved file to {file_path}")
-                # Upload the file to OpenAI and get the file ID
-                file_id = await upload_file_to_openai(file_path)
+                file_id = await upload_file_to_openai(file_input)
                 print("Executed 1.3")
                 if file_id:
                     file_ids.append(file_id)
