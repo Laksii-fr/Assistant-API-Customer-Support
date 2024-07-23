@@ -1,7 +1,7 @@
 from openai import OpenAI
 import os
 import openai
-from app.helpers.openai_helpers import create_files
+from app.helpers.openai_helpers import upload_file_to_openai
 from fastapi import UploadFile
 
 openai.api_key = os.getenv("OPENAI_API_KEY")
@@ -33,16 +33,21 @@ async def create_assistant_with_file(files: list[UploadFile], config):
     tool_sel = config['tool_sel']
     model_sel = config['Model_sel']
     assistant_instructions = config['assistant_instructions']
-    
+
     print("Starting the process of creating an assistant with files")
+    file_ids = []
     try:
         print("Uploading files")
-        files_list = await create_files(files)
-        print(f"Files uploaded successfully: {files_list}")
+        for file in files:
+            file_id = await upload_file_to_openai(file)
+            if file_id:
+                file_ids.append(file_id)
+            else:
+                raise ValueError("File upload failed")
     except ValueError as e:
         print(f"File upload error: {e}")
         return None
-    file_ids = [element["fileId"] for element in files_list]
+
     print(f"File IDs extracted: {file_ids}")
     try:
         print("Creating assistant with OpenAI API")
@@ -59,7 +64,8 @@ async def create_assistant_with_file(files: list[UploadFile], config):
     except Exception as e:
         print(f"Error creating assistant with files: {e}")
         return None
-
+    
+    
 async def update_assistant_details(assistant_id, name=None, instructions=None, tool_type=None, model_type=None):
     update_data = {}
     if name:
