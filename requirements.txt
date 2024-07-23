@@ -11,3 +11,4 @@ itsdangerous
 motor
 pymongo
 uvicorn
+boto3
