@@ -16,12 +16,11 @@ db = client[DATABASE_NAME]
 assistant_collection = db[COLLECTION_NAME]
 thread_collection = db[TCOLLECTION_NAME]
 
-async def insert_assistant_data(assistant_name: str, assistant_instructions: str, assistant_link: str, assistant_id: str, Model_type: str, tool_type: str, file_ids: Optional[List[str]] = None):
+async def insert_assistant_data(assistant_name: str, assistant_instructions: str,assistant_id: str, Model_type: str, tool_type: str, file_ids: Optional[List[str]] = None):
     """Insert assistant data into MongoDB with multiple file IDs."""
     document = {
         "assistant_name": assistant_name,
         "assistant_instructions": assistant_instructions,
-        "link": assistant_link,
         "assistant_id": assistant_id,
         "Model_type": Model_type,
         "assistant_tool": tool_type,
@@ -30,12 +29,11 @@ async def insert_assistant_data(assistant_name: str, assistant_instructions: str
     result = await assistant_collection.insert_one(document)
     return result.inserted_id
 
-async def insert_assistant_threads(assistant_id: str, thread_id: str, file_ids: Optional[List[str]] = None):
+async def insert_assistant_threads(assistant_id: str, thread_id: str):
     """Insert assistant threads data into MongoDB with multiple file IDs."""
     document = {
         "assistant_id": assistant_id,
         "thread_id": thread_id,
-        "file_ids": file_ids if file_ids else []
     }
     result = await thread_collection.insert_one(document)
     return result.inserted_id
