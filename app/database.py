@@ -16,7 +16,7 @@ db = client[DATABASE_NAME]
 assistant_collection = db[COLLECTION_NAME]
 thread_collection = db[TCOLLECTION_NAME]
 
-async def insert_assistant_data(assistant_name: str, assistant_instructions: str,assistant_id: str, Model_type: str, tool_type: str, file_ids: Optional[List[str]] = None):
+async def insert_assistant_data(assistant_name: str, assistant_instructions: str,assistant_id: str, Model_type: str, tool_type: str,vector_store_ids : str ,file_ids: Optional[List[str]] = None):
     """Insert assistant data into MongoDB with multiple file IDs."""
     document = {
         "assistant_name": assistant_name,
@@ -24,6 +24,7 @@ async def insert_assistant_data(assistant_name: str, assistant_instructions: str
         "assistant_id": assistant_id,
         "Model_type": Model_type,
         "assistant_tool": tool_type,
+        "Vector_Store_ID" : vector_store_ids,
         "file_ids": file_ids if file_ids else []
     }
     result = await assistant_collection.insert_one(document)

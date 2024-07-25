@@ -6,7 +6,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from starlette.responses import RedirectResponse, JSONResponse
 from app.database import insert_assistant_data, insert_assistant_threads, get_threads_for_assistant, get_messages_for_thread, update_assistant_data, get_all_assistants
 from app.assistant import create_assistant, update_assistant_details,create_assistant_with_file
-from app.upload import upload_file_to_openai , create_vector_store_with_file
+from app.upload import upload_file_to_openai , create_vector_store
 from app.threads import create_thread, add_message_to_thread
 from typing import List
 from datetime import datetime
@@ -34,35 +34,33 @@ async def handle_form(
     file_inputs: List[UploadFile] = File(None)
 ):
     file_ids = []
-
-
+    
     assistant_config = {
         'company_name': company_name,
         'file_ids': file_ids,
         'tool_sel': tool_type,
         'Model_sel': Model_type,
-        'assistant_instructions': assistant_instructions
+        'assistant_instructions': assistant_instructions,
     }
 
-
+    vector_store_ids = await create_vector_store(assistant_config)
 
     if tool_type != "code_interpreter":
         if file_inputs:
             for file_input in file_inputs:
-                file_id = await upload_file_to_openai(file_input)
+                file_id = await upload_file_to_openai(file_input, vector_store_ids)
                 if file_id:
                     file_ids.append(file_id)
         if not file_ids:
             print("No file IDs generated")
             return RedirectResponse(url="/error", status_code=302)
 
-
     try:
         assistant = None  # Initialize assistant variable
         assistant_id = None  # Initialize assistant_id variable
         if file_ids:
-            vector_store_ids = await create_vector_store_with_file(file_ids,assistant_config)
-            assistant = await create_assistant_with_file(assistant_config, vector_store_ids)
+            print(vector_store_ids)
+            assistant = await create_assistant_with_file(assistant_config, [vector_store_ids])
             if assistant:
                 assistant_id = assistant.id  # Capture the assistant ID
             else:
@@ -87,7 +85,7 @@ async def handle_form(
 
     # Insert IDs into the database
     try:
-        await insert_assistant_data(company_name, assistant_instructions, assistant_id, Model_type, tool_type, file_ids)
+        await insert_assistant_data(company_name, assistant_instructions, assistant_id, Model_type, tool_type,vector_store_ids ,file_ids)
         await insert_assistant_threads(assistant_id, thread_id)
     except Exception as e:
         print(f"Error inserting data into MongoDB: {e}")
@@ -98,7 +96,7 @@ async def handle_form(
     request.session['assistant_id'] = assistant_id  # Store assistant_id
     request.session['file_ids'] = file_ids  # Store file_ids
 
-    print(f"Company: {company_name}, File Names: {[file_input.filename for file_input in file_inputs] if file_inputs else 'N/A'}, OpenAI File IDs: {file_ids if file_ids else 'N/A'}, Thread ID: {thread_id}")
+    print(f"Assistant Name: {company_name}, File Names: {[file_input.filename for file_input in file_inputs] if file_inputs else 'N/A'}, OpenAI File IDs: {file_ids if file_ids else 'N/A'}, Thread ID: {thread_id} , Vector Store ID: {vector_store_ids}")
 
     return RedirectResponse(url="/chatbot", status_code=302)
 
@@ -119,14 +117,7 @@ async def process_message(request: Request):
     time_str = now.strftime("%H:%M")
 
     if not thread_id:
-        # Create a new thread if it doesn't exist
-        try:
-            thread_id = await create_thread()
-            await insert_assistant_threads(assistant_id, thread_id)
-            request.session['thread_id'] = thread_id
-        except Exception as e:
-            print(f"Error creating thread: {e}")
-            return {"response": "Error creating thread. Please try again later."}
+        return {"response": "Thread not available. Please try again later."}
 
     # Add the user's message to the thread
     try:

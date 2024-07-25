@@ -25,7 +25,7 @@ async def create_assistant(config):
         print(f"Error creating assistant: {e}")
         return None  # Ensure you handle this case in your calling code
 
-async def create_assistant_with_file(config,vector_store_ids):
+async def create_assistant_with_file(config, vector_store_ids):
     if 'tool_sel' not in config or 'assistant_instructions' not in config:
         raise ValueError("Assistant configuration is not set properly")
     client = OpenAI()
@@ -41,7 +41,7 @@ async def create_assistant_with_file(config,vector_store_ids):
             tools=[{"type": tool_sel}],  # Use the selected tool type
             tool_resources={
                 "file_search": {
-                    "vector_store_ids": [ID for ID in vector_store_ids]
+                    "vector_store_ids": vector_store_ids  # Pass the single vector store ID
                 }
             }
         )
