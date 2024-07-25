@@ -1,31 +1,28 @@
-# threads.py
 from openai import OpenAI
 from app.event_handler import EventHandler
 import os
 import openai
+from typing import List, Dict
 
 openai.api_key = os.getenv("OPENAI_API_KEY")
 client = OpenAI()
 
-async def create_thread(company_info: str, assistant_id: str, file_id: str = None) -> str:
+async def create_thread():
     """Create a new thread and add the initial message."""
     try:
         thread = client.beta.threads.create()
         thread_id = thread.id
-        
-        # Add initial message to the thread
-        await add_message_to_thread(thread_id, company_info, assistant_id, file_id, role="assistant")
         
         return thread_id
     except Exception as e:
         print(f"Error creating thread: {e}")
         return None
     
-async def add_message_to_thread(thread_id: str, content: str, assistant_id: str, file_id: str = None, role: str = "user") -> str:
+async def add_message_to_thread(thread_id: str, content: str, assistant_id: str, file_ids: List[str], role: str = "user") -> str:
     """Add a message to the thread and handle responses."""
     try:
-        # Define attachments only if file_id is provided
-        attachments = [{"file_id": file_id, "tools": [{"type": "file_search"}]}] if file_id else None
+        # Define attachments only if file_ids are provided
+        attachments = [{"file_id": file_id, "tools": [{"type": "file_search"}]} for file_id in file_ids] if file_ids else None
         response = client.beta.threads.messages.create(
             thread_id=thread_id,
             role=role,
@@ -53,3 +50,4 @@ async def add_message_to_thread(thread_id: str, content: str, assistant_id: str,
     except Exception as e:
         print(f"Error adding message to thread: {e}")
         return None
+

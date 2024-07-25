@@ -1,30 +1,50 @@
-import aiofiles
 import os
 from fastapi import UploadFile
-from openai import OpenAI
 from dotenv import load_dotenv
 import openai
-
-
-openai.api_key = os.getenv("OPENAI_API_KEY")
+from openai import OpenAI
+import io
 
 load_dotenv()
+openai.api_key = os.getenv("OPENAI_API_KEY")
 client = OpenAI()
 
-async def save_file(file: UploadFile) -> str:
-    file_path = f"uploads/{file.filename}"
-    os.makedirs(os.path.dirname(file_path), exist_ok=True)
-    async with aiofiles.open(file_path, 'wb') as out_file:
-        content = await file.read()
-        await out_file.write(content)
-    return file_path
-
-async def upload_file_to_openai(file_path: str) -> str:
+async def upload_file_to_openai(file: UploadFile, vector_store_id: str) -> str:
     try:
-        with open(file_path, 'rb') as f:
-            response = client.files.create(file=f, purpose='fine-tune')
-            file_id = response.id  # Use attribute access instead of indexing
+        # Read the file content in binary mode
+        content = await file.read()
+
+        # Create the file in OpenAI
+        _file_ = client.files.create(file=content, purpose='assistants')
+
+        # Prepare the file as an in-memory file-like object
+        file_like = io.BytesIO(content)
+        file_like.name = file.filename  # Give the file-like object a name attribute
+
+        # Create an iterable of file-like objects
+        files = [file_like]
+
+        file_batch = client.beta.vector_stores.file_batches.upload_and_poll(
+            vector_store_id=vector_store_id, files=files
+        )
+
+        # Retrieve the file ID
+        file_id = _file_.id  # Use attribute access instead of indexing
+        print(f"File uploaded to OpenAI with ID {file_id}")
+
         return file_id
+
     except Exception as e:
-        print(f"Error uploading file to OpenAI: {e}")
-        return None # type: ignore
+        print(f"An error occurred: {e}")
+        return None
+    
+
+async def create_vector_store(config):
+    assistant_name = config['company_name']
+    vector_store = client.beta.vector_stores.create(
+        name=assistant_name
+    )
+    vector_store_ids = vector_store.id
+
+    return vector_store_ids
+

@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Update Assistant</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+    <style>
+        .popup {
+            display: none;
+            position: fixed;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            border: 1px solid #000;
+            padding: 20px;
+            background: #fff;
+            z-index: 1000;
+            border-radius : 5px;
+        }
+        .popup .close-btn {
+            cursor: pointer;
+            float: right;
+        }
+        .popup-overlay {
+            display: none;
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+        }
+
+
+        /* CSS */
+        .button-13 {
+        background-color: #fff;
+        border: 1px solid #d5d9d9;
+        border-radius: 8px;
+        box-shadow: rgba(213, 217, 217, .5) 0 2px 5px 0;
+        box-sizing: border-box;
+        color: #0f1111;
+        cursor: pointer;
+        display: inline-block;
+        font-family: "Amazon Ember",sans-serif;
+        font-size: 13px;
+        line-height: 29px;
+        padding: 0 10px 0 11px;
+        position: relative;
+        text-align: center;
+        text-decoration: none;
+        user-select: none;
+        -webkit-user-select: none;
+        touch-action: manipulation;
+        vertical-align: middle;
+        width: 100px;
+        }
+
+        .button-13:hover {
+        background-color: #f7fafa;
+        }
+
+        .button-13:focus {
+        border-color: #008296;
+        box-shadow: rgba(213, 217, 217, .5) 0 2px 5px 0;
+        outline: 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="left-section">
+            <div class="branding">
+                <img src="../static/images/logo.png" alt="Sentinal Logo">
+            </div>
+            <h1>Update Assistant</h1>
+        </div>
+        <div class="right-section">
+            <h2>Select Assistant to Update</h2>
+            <div id="assistant-list">
+                {% for assistant in assistants %}
+                    <!-- <button class="button-13" onclick="showPopup('{{ assistant.assistant_id }}', '{{ assistant.assistant_name }}')">
+                        {{ assistant.assistant_name }} (ID: {{ assistant.assistant_id }})
+                    </button> -->
+                    <button class="button-13" onclick="showPopup('{{ assistant.assistant_id }}')">
+                        {{ assistant.assistant_name }}
+                    </button>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <div class="popup-overlay" id="popup-overlay"></div>
+    <div class="popup" id="popup-form">
+        <span class="close-btn" onclick="closePopup()">✖</span>
+        <form id="updateForm" action="/update_assistant" method="post">
+            <h2>Update Assistant Details</h2>
+            <input type="hidden" id="assistantId" name="assistant_id">
+            <!-- Assistant Name Input -->
+            <div class="input-box">
+                <label for="assistantName">Assistant Name:</label>
+                <input type="text" id="assistantName" name="assistant_name">
+            </div>
+            <!-- Assistant Instructions Input -->
+            <div class="input-box">
+                <label for="assist_instructions">Update Instructions for Assistant:</label>
+                <input type="text" id="assist_instructions" name="assistant_instructions">
+            </div>
+            <!-- Tool Selection Dropdown -->
+            <div class="input-box">
+                <label for="toolType">Select Tool:</label>
+                <div class="dropdown">
+                    <input type="checkbox" id="toolDropdown">
+                    <label class="dropdown__face" for="toolDropdown">
+                        <div class="dropdown__text" id="toolDropdownText">Select tool</div>
+                        <div class="dropdown__arrow"></div>
+                    </label>
+                    <ul class="dropdown__items">
+                        <li onclick="selectToolType('file_search')">Retrieval</li>
+                        <li onclick="selectToolType('code_interpreter')">Code Interpreter</li>
+                    </ul>
+                </div>
+            </div>
+            <!-- Model Selection Dropdown -->
+            <div class="input-box">
+                <label for="ModelType">Select Model:</label>
+                <div class="dropdown">
+                    <input type="checkbox" id="ModelDropdown">
+                    <label class="dropdown__face" for="ModelDropdown">
+                        <div class="dropdown__text" id="ModelDropdownText">Select Model</div>
+                        <div class="dropdown__arrow"></div>
+                    </label>
+                    <ul class="dropdown__items">
+                        <li onclick="selectModelType('gpt-3.5-turbo')">ChatGPT-3.5-Turbo</li>
+                        <li onclick="selectModelType('gpt-4o')">ChatGPT-4o</li>
+                    </ul>
+                </div>
+            </div>
+            <input type="hidden" id="toolType" name="tool_type">
+            <input type="hidden" id="ModelType" name="Model_type">
+            <!-- Submit Button -->
+            <button type="submit" class="button-3">Update Assistant</button>
+            <!-- Navigate to Chatbot Button -->
+            <button type="button" class="button-3" onclick="navigateToChatbot()">Go to Chatbot</button>
+        </form>
+    </div>
+
+    <script>
+        function showPopup(id, name) {
+            document.getElementById('assistantId').value = id;
+            document.getElementById('assistantName').value = name;
+            document.getElementById('popup-form').style.display = 'block';
+            document.getElementById('popup-overlay').style.display = 'block';
+        }
+
+        function closePopup() {
+            document.getElementById('popup-form').style.display = 'none';
+            document.getElementById('popup-overlay').style.display = 'none';
+        }
+
+        function selectToolType(type) {
+            document.getElementById('toolType').value = type;
+            document.getElementById('toolDropdownText').innerText = type;
+            document.getElementById('toolDropdown').checked = false;
+        }
+
+        function selectModelType(type) {
+            document.getElementById('ModelType').value = type;
+            document.getElementById('ModelDropdownText').innerText = type;
+            document.getElementById('ModelDropdown').checked = false;
+        }
+    </script>
+</body>
+</html>

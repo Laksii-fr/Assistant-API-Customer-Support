@@ -4,13 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sentinal</title>
-    <link rel="stylesheet" href="/static/css/styles.css">
+    <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
     <div class="container">
         <div class="left-section">
             <div class="branding">
-                <img src="../static/images/Sentinal_logo.png" alt="Sentinal Logo">
+                <img src="../static/images/logo.png" alt="Sentinal Logo">
             </div>
             <h1>Customer Support, Sentinal</h1>
             <ul class="features">
@@ -27,11 +27,6 @@
                 <div class="input-box">
                     <label for="companyName" style="font-weight: bold; color: rgb(0, 0, 0);">Assistant Name:</label>
                     <input type="text" id="companyName" name="company_name" required>
-                </div>
-                <!-- Company Link Input -->
-                <div class="input-box">
-                    <label for="companyLink" style="font-weight: bold; color: rgb(0, 0, 0);">Any Link if required:</label>
-                    <input type="url" id="companyLink" name="company_link" required>
                 </div>
                 <!-- Assistant Instructions Input -->
                 <div class="input-box">
@@ -73,12 +68,16 @@
                 <!-- File Upload Input -->
                 <div class="input-box">
                     <label for="fileInput" style="font-weight: bold; color: rgb(0, 0, 0);">Upload File:</label>
-                    <input type="file" id="fileInput" name="file_input">
+                    <input type="file" id="fileInput" name="file_inputs" multiple>
                 </div>
                 <div id="errorMessage" style="color: red;"></div>
                 <!-- Submit Button -->
                 <button type="submit" class="button-3">Create Assistant</button>
             </form>
+            <!-- Add this inside the right-section div in main.html -->
+            <div class="input-box">
+                <button type="button" class="button-3" onclick="window.location.href='/update_assistant'">Update Existing Assistant</button>
+            </div>
         </div>
     </div>
 
